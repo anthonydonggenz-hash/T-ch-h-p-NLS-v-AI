@@ -17,7 +17,7 @@ export const suggestFromContent = async (
 ): Promise<string> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    return "Lỗi: Chưa cấu hình GEMINI_API_KEY. Vui lòng kiểm tra lại môi trường.";
+    return "Lỗi AI: Chưa cấu hình GEMINI_API_KEY. Vui lòng kiểm tra lại 'Settings' hoặc '.env'.";
   }
   
   try {
@@ -65,7 +65,7 @@ export const generateLessonPlan = async (
 ): Promise<ResultData> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("Chưa cấu hình GEMINI_API_KEY. Vui lòng kiểm tra lại môi trường.");
+    throw new Error("Lỗi AI: Chưa cấu hình GEMINI_API_KEY. Vui lòng kiểm tra lại 'Settings' hoặc '.env'.");
   }
   
   try {
