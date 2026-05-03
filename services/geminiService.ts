@@ -1,16 +1,29 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ResultData } from "../types";
 
-const getApiKey = () => {
-  // Try various ways to get the API key
-  return (
-    process.env.GEMINI_API_KEY || 
-    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-    ""
-  );
-};
+const callGeminiProxy = async (prompt: string, options: { isJson?: boolean, model?: string } = {}) => {
+  try {
+    const response = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        isJson: options.isJson,
+        model: options.model
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Lỗi khi gọi AI từ máy chủ.");
+    }
 
-const API_ERROR_MSG = "Lỗi AI: Chưa có mã API Key. Vui lòng cấu hình GEMINI_API_KEY trong phần 'Settings' của AI Studio hoặc tệp .env.";
+    const data = await response.json();
+    return data.text;
+  } catch (error: any) {
+    console.error("Gemini Proxy Error:", error);
+    throw error;
+  }
+};
 
 export const suggestFromContent = async (
   topic: string,
@@ -19,15 +32,7 @@ export const suggestFromContent = async (
   fileData?: { data: string, mimeType: string },
   isIntegration: boolean = false
 ): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    return API_ERROR_MSG;
-  }
-  
   try {
-    const ai = new GoogleGenerativeAI(apiKey);
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-
     let prompt = `Bạn là trợ lý giảng dạy AI. 
   NHIỆM VỤ: ${isIntegration ? 'Trích xuất TOÀN BỘ nội dung giáo án từ tài liệu đã tải lên.' : 'Phân tích tài liệu và đề xuất nội dung chi tiết cho bài dạy:'}
   Môn: ${subject}
@@ -39,25 +44,15 @@ export const suggestFromContent = async (
     ? 'HÃY TRÍCH XUẤT 100% VĂN BẢN (KHÔNG TÓM TẮT, KHÔNG LƯỢC BỚT) có trong file giáo án của giáo viên. Mục tiêu là lấy lại nguyên bản nội dung để sau đó AI sẽ thực hiện tích hợp NLS/AI vào chính nội dung này. Giữ nguyên cấu trúc các mục (Mục tiêu, Thiết bị, Hoạt động GV-HS...).' 
     : 'Trích xuất các kiến thức cốt lõi, ví dụ và bài tập thực hành từ tài liệu. Nếu không có tài liệu, hãy tự soạn nội dung chuẩn theo chương trình GDPT 2018.'}`;
 
-    const parts: any[] = [{ text: prompt }];
     if (fileData) {
-      parts.push({
-        inlineData: {
-          data: fileData.data,
-          mimeType: fileData.mimeType
-        }
-      });
+      prompt += `\n\nDữ liệu từ file đính kèm (Base64): ${fileData.data.substring(0, 5000)}... [Tài liệu dài, hãy tập trung phân tích nội dung chính]`;
     }
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts }]
-    });
-    
-    const response = await result.response;
-    return response.text() || "Không có nội dung phản hồi.";
+    const text = await callGeminiProxy(prompt);
+    return text || "Không có nội dung phản hồi.";
   } catch (err: any) {
     console.error("Ai Suggest Error:", err);
-    return "Không thể trích xuất nội dung từ tài liệu. Vui lòng kiểm tra API Key.";
+    return `Lỗi: ${err.message}. Vui lòng thử lại sau.`;
   }
 };
 
@@ -67,20 +62,7 @@ export const generateLessonPlan = async (
   extractedContent?: string,
   frameworkContent?: string
 ): Promise<ResultData> => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error(API_ERROR_MSG);
-  }
-  
   try {
-    const ai = new GoogleGenerativeAI(apiKey);
-    const model = ai.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
-
     const systemPrompt = `Bạn là chuyên gia giáo dục cao cấp, am hiểu sâu sắc về chuyển đổi số giáo dục tại Việt Nam và các khung năng lực mới nhất.
     NHIỆM VỤ: Tích hợp Năng lực số (NLS) và Trí tuệ nhân tạo (AI) vào giáo án một cách "siêu chi tiết".
     
@@ -135,13 +117,8 @@ export const generateLessonPlan = async (
     3. Mọi nội dung bổ sung/tích hợp BẮT BUỘC phải đặt trong thẻ <span style="color:red">...</span>.
     4. Xuất kết quả hoàn chỉnh dưới dạng JSON theo đúng Schema đã quy định.`;
 
-    const aiResult = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }]
-    });
-
-    const response = await aiResult.response;
-    const responseText = response.text() || "";
-    // Clean up potential markdown formatting if any
+    const responseText = await callGeminiProxy(systemPrompt + "\n\n" + userPrompt, { isJson: true });
+    
     const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     
     let parsedResult;
@@ -198,15 +175,6 @@ export const transformActivity = async (
   subject: string,
   grade: string
 ): Promise<any> => {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error(API_ERROR_MSG);
-
-  const ai = new GoogleGenerativeAI(apiKey);
-  const model = ai.getGenerativeModel({ 
-    model: "gemini-1.5-flash",
-    generationConfig: { responseMimeType: "application/json" }
-  });
-
   const prompt = `Bạn là chuyên gia sư phạm. Hãy chuyển đổi hoạt động giáo dục sau đây sang phương pháp: ${methodType}.
   Môn: ${subject}, Lớp: ${grade}
   Hoạt động gốc: ${JSON.stringify(activity)}
@@ -217,8 +185,7 @@ export const transformActivity = async (
   - ${methodType === 'gamification' ? 'Sử dụng các yếu tố trò chơi, luật chơi, điểm số.' : 'Sử dụng mô hình học tập ở nhà trước, đến lớp thực hành.'}
   - Trả về DUY NHẤT đối tượng JSON của hoạt động đã sửa.`;
 
-  const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
+  const responseText = await callGeminiProxy(prompt, { isJson: true });
   const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
   return JSON.parse(cleanJson);
 };
@@ -228,12 +195,6 @@ export const elaborateSection = async (
   userPrompt: string,
   sectionName: string
 ): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error(API_ERROR_MSG);
-
-  const ai = new GoogleGenerativeAI(apiKey);
-  const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-
   const prompt = `Bạn là trợ lý soạn bài. Hãy viết chi tiết hơn/mở rộng nội dung sau đây dựa trên yêu cầu của giáo viên.
   Phần: ${sectionName}
   Nội dung hiện tại: ${sectionContent}
@@ -244,6 +205,5 @@ export const elaborateSection = async (
   - Sử dụng ngôn ngữ sư phạm chuẩn xác.
   - Có thể sử dụng thẻ <span style="color:red">...</span> cho các nội dung AI bổ sung.`;
 
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  return await callGeminiProxy(prompt);
 };
