@@ -8,10 +8,10 @@
     "build": "vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview",
-    "start": "node dist/server.js"
+    "start": "node server.ts"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.51.0",
     "@tailwindcss/vite": "^4.2.2",
     "docx": "^9.6.1",
     "express": "^5.2.1",

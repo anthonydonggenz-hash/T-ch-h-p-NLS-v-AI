@@ -1,27 +1,43 @@
 import { ResultData } from "../types";
+import { GoogleGenAI } from "@google/genai";
 
-const callGeminiProxy = async (prompt: string, options: { isJson?: boolean, model?: string } = {}) => {
+const getAiClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey.trim() === "") {
+    throw new Error("Chưa cấu hình API Key. Vui lòng: \n1. Click vào biểu tượng 'Settings' (bánh răng) ở góc phải.\n2. Chọn 'API Keys'.\n3. Chọn một API Key hợp lệ hoặc tạo mới.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+const callGemini = async (prompt: string, options: { isJson?: boolean, model?: string } = {}) => {
   try {
-    const response = await fetch("/api/gemini", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        isJson: options.isJson,
-        model: options.model
-      })
-    });
+    const ai = getAiClient();
+    const modelName = options.model || "gemini-3-flash-preview";
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Lỗi khi gọi AI từ máy chủ.");
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: options.isJson ? { responseMimeType: "application/json" } : undefined
+    });
+
+    if (!response.text) {
+      throw new Error("Không có phản hồi từ AI.");
     }
 
-    const data = await response.json();
-    return data.text;
+    return response.text;
   } catch (error: any) {
-    console.error("Gemini Proxy Error:", error);
-    throw error;
+    console.error("Gemini API Error:", error);
+    
+    let clientErrorMessage = error.message || "Lỗi khi gọi AI";
+    
+    // Handle invalid API key specifically
+    if (clientErrorMessage.includes("API key not valid") || clientErrorMessage.includes("API_KEY_INVALID")) {
+      clientErrorMessage = "API Key không hợp lệ. Vui lòng: \n1. Click vào biểu tượng 'Settings' (bánh răng) ở góc phải.\n2. Chọn 'API Keys'.\n3. Chọn một API Key hợp lệ hoặc tạo mới.";
+    } else if (clientErrorMessage.includes("quota")) {
+      clientErrorMessage = "Bạn đã hết hạn mức sử dụng (quota). Vui lòng thử lại sau hoặc đổi API Key.";
+    }
+    
+    throw new Error(clientErrorMessage);
   }
 };
 
@@ -48,11 +64,11 @@ export const suggestFromContent = async (
       prompt += `\n\nDữ liệu từ file đính kèm (Base64): ${fileData.data.substring(0, 5000)}... [Tài liệu dài, hãy tập trung phân tích nội dung chính]`;
     }
 
-    const text = await callGeminiProxy(prompt);
+    const text = await callGemini(prompt);
     return text || "Không có nội dung phản hồi.";
   } catch (err: any) {
     console.error("Ai Suggest Error:", err);
-    return `Lỗi: ${err.message}. Vui lòng thử lại sau.`;
+    throw err;
   }
 };
 
@@ -117,7 +133,7 @@ export const generateLessonPlan = async (
     3. Mọi nội dung bổ sung/tích hợp BẮT BUỘC phải đặt trong thẻ <span style="color:red">...</span>.
     4. Xuất kết quả hoàn chỉnh dưới dạng JSON theo đúng Schema đã quy định.`;
 
-    const responseText = await callGeminiProxy(systemPrompt + "\n\n" + userPrompt, { isJson: true });
+    const responseText = await callGemini(systemPrompt + "\n\n" + userPrompt, { isJson: true });
     
     const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     
@@ -165,7 +181,7 @@ export const generateLessonPlan = async (
     };
   } catch (err: any) {
     console.error("Generate Error:", err);
-    throw new Error("Lỗi khi tạo giáo án: " + (err.message || "Lỗi không xác định"));
+    throw new Error(err.message || "Lỗi không xác định");
   }
 };
 
@@ -185,7 +201,7 @@ export const transformActivity = async (
   - ${methodType === 'gamification' ? 'Sử dụng các yếu tố trò chơi, luật chơi, điểm số.' : 'Sử dụng mô hình học tập ở nhà trước, đến lớp thực hành.'}
   - Trả về DUY NHẤT đối tượng JSON của hoạt động đã sửa.`;
 
-  const responseText = await callGeminiProxy(prompt, { isJson: true });
+  const responseText = await callGemini(prompt, { isJson: true });
   const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
   return JSON.parse(cleanJson);
 };
@@ -205,5 +221,5 @@ export const elaborateSection = async (
   - Sử dụng ngôn ngữ sư phạm chuẩn xác.
   - Có thể sử dụng thẻ <span style="color:red">...</span> cho các nội dung AI bổ sung.`;
 
-  return await callGeminiProxy(prompt);
+  return await callGemini(prompt);
 };

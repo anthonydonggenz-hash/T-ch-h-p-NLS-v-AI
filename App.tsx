@@ -73,7 +73,7 @@ const App = () => {
       setNotification({ message: mode === 'integration' ? "Đã tích hợp NLS & AI vào giáo án của bạn!" : "Đã tạo giáo án mới thành công!", type: 'success' });
     } catch (error: any) {
       console.error("Lỗi tạo giáo án:", error);
-      setNotification({ message: `Lỗi AI: ${error.message || 'Không xác định'}`, type: 'error' });
+      setNotification({ message: error.message || 'Lỗi không xác định', type: 'error' });
       setCurrentMode(formData.originalText ? 'integrate_input' : 'create_input');
     }
   };
