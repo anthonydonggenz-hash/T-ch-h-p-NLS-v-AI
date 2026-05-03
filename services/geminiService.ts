@@ -1,43 +1,34 @@
 import { ResultData } from "../types";
-import { GoogleGenAI } from "@google/genai";
-
-const getAiClient = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey.trim() === "") {
-    throw new Error("Chưa cấu hình API Key. Vui lòng: \n1. Click vào biểu tượng 'Settings' (bánh răng) ở góc phải.\n2. Chọn 'API Keys'.\n3. Chọn một API Key hợp lệ hoặc tạo mới.");
-  }
-  return new GoogleGenAI({ apiKey });
-};
 
 const callGemini = async (prompt: string, options: { isJson?: boolean, model?: string } = {}) => {
   try {
-    const ai = getAiClient();
-    const modelName = options.model || "gemini-3-flash-preview";
-    
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: options.isJson ? { responseMimeType: "application/json" } : undefined
+    const response = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        isJson: options.isJson,
+        model: options.model
+      })
     });
-
-    if (!response.text) {
-      throw new Error("Không có phản hồi từ AI.");
+    
+    if (!response.ok) {
+      const text = await response.text();
+      let errorMessage = "Lỗi khi gọi AI từ máy chủ.";
+      try {
+        const errorData = JSON.parse(text);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        errorMessage = text.length > 0 ? (text.substring(0, 200) + (text.length > 200 ? "..." : "")) : errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
-    return response.text;
+    const data = await response.json();
+    return data.text;
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    
-    let clientErrorMessage = error.message || "Lỗi khi gọi AI";
-    
-    // Handle invalid API key specifically
-    if (clientErrorMessage.includes("API key not valid") || clientErrorMessage.includes("API_KEY_INVALID")) {
-      clientErrorMessage = "API Key không hợp lệ. Vui lòng: \n1. Click vào biểu tượng 'Settings' (bánh răng) ở góc phải.\n2. Chọn 'API Keys'.\n3. Chọn một API Key hợp lệ hoặc tạo mới.";
-    } else if (clientErrorMessage.includes("quota")) {
-      clientErrorMessage = "Bạn đã hết hạn mức sử dụng (quota). Vui lòng thử lại sau hoặc đổi API Key.";
-    }
-    
-    throw new Error(clientErrorMessage);
+    console.error("Gemini Proxy Error:", error);
+    throw error;
   }
 };
 
