@@ -36,6 +36,8 @@ const App = () => {
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [userApiKey, setUserApiKey] = useState(localStorage.getItem("GEMINI_API_KEY") || "");
 
   // Auto-hide notification
   useEffect(() => {
@@ -218,6 +220,12 @@ const App = () => {
           score: 98,
           issues: [{type: 'success', msg: 'Cấu trúc bài dạy rất chi tiết và đúng quy định 5512.'}]
       });
+  };
+
+  const saveApiKey = () => {
+    localStorage.setItem("GEMINI_API_KEY", userApiKey);
+    setNotification({ message: "Đã lưu API Key của bạn!", type: 'success' });
+    setShowSettings(false);
   };
 
   const handleTransformMethod = async (actIndex: number, methodType: string) => {
@@ -570,6 +578,13 @@ const App = () => {
                     <Layers size={18} className={currentMode === 'integrate_input' ? 'animate-pulse' : 'group-hover:rotate-12 transition-transform'} /> 
                     <span className="text-sm font-bold tracking-wide">Tích hợp NLS & AI</span>
                 </div>
+                <div 
+                    onClick={() => setShowSettings(true)} 
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-300 group hover:bg-white/10 text-slate-400 hover:text-white mt-4 border border-white/5 bg-white/5`}
+                >
+                    <Settings size={18} className="group-hover:rotate-90 transition-transform text-gold-accent" /> 
+                    <span className="text-sm font-bold tracking-wide">Cài đặt API cá nhân</span>
+                </div>
             </nav>
 
             {/* Bottom Actions */}
@@ -695,6 +710,91 @@ const App = () => {
                         onTransform={handleTransformMethod} 
                         onElaborate={handleSectionElaborate} 
                     />
+                </div>
+            )}
+
+            {/* API SETTINGS MODAL */}
+            {showSettings && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+                        <div className="bg-gradient-to-r from-[#0F172A] to-[#1E293B] p-6 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-gold-accent rounded-lg">
+                                    <Settings size={20} />
+                                </div>
+                                <h2 className="text-xl font-bold font-serif">Cài đặt API Gemini (Dành cho Thầy/Cô)</h2>
+                            </div>
+                            <button onClick={() => setShowSettings(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-8 space-y-6 overflow-y-auto max-h-[80vh]">
+                            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-4">
+                                <div className="text-blue-500">
+                                    <AlertCircle size={24} />
+                                </div>
+                                <div className="text-sm text-blue-900 leading-relaxed">
+                                    <p className="font-bold mb-1">Tại sao cần API Key cá nhân?</p>
+                                    <p>Để đảm bảo ứng dụng luôn hoạt động mượt mà và không bị gián đoạn do hết hạn mức (quota), quý Thầy/Cô nên sử dụng mã API riêng của mình từ Google. Hoàn toàn miễn phí.</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                    <CheckCircle size={18} className="text-green-500" /> Hướng dẫn lấy API Key nhanh:
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-600">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="font-bold text-slate-800 mb-2">Bước 1: Truy cập trang Google AI</p>
+                                        <p>Nhấp vào link: <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-600 font-bold underline">Google AI Studio</a>. Đăng nhập bằng tài khoản Gmail của bạn.</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="font-bold text-slate-800 mb-2">Bước 2: Tạo khóa API</p>
+                                        <p>Nhấp chọn nút <b>"Get API key"</b> → <b>"Create API key in new project"</b>.</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="font-bold text-slate-800 mb-2">Bước 3: Sao chép mã</p>
+                                        <p>Hệ thống sẽ hiện ra một dãy ký tự (ví dụ: AIza...). Hãy nhấn <b>Copy</b> dãy mã đó.</p>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                        <p className="font-bold text-slate-800 mb-2">Bước 4: Dán vào ô bên dưới</p>
+                                        <p>Quay lại đây, dán mã vừa copy vào ô nhập liệu và nhấn <b>Lưu cài đặt</b>.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100">
+                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-3">Nhập mã API Key của bạn:</label>
+                                <div className="relative">
+                                    <input 
+                                        type="password"
+                                        placeholder="AIzaSy..."
+                                        value={userApiKey}
+                                        onChange={(e) => setUserApiKey(e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 pr-12 focus:outline-none focus:border-gold-accent focus:ring-1 focus:ring-gold-accent/20 transition-all font-mono"
+                                    />
+                                    <Bot className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-2 italic">* Mã API của bạn được lưu an toàn trên trình duyệt cá nhân, không gửi về bất kỳ server nào khác.</p>
+                            </div>
+
+                            <div className="flex gap-4 pt-4">
+                                <button 
+                                    onClick={() => setShowSettings(false)}
+                                    className="flex-1 py-3 rounded-xl border border-slate-200 font-bold text-slate-500 hover:bg-slate-50 transition-all"
+                                >
+                                    Đóng
+                                </button>
+                                <button 
+                                    onClick={saveApiKey}
+                                    className="flex-[2] py-3 rounded-xl bg-gradient-to-r from-gold-accent to-gold-primary text-white font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Save size={18} /> Lưu cài đặt API
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

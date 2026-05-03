@@ -2,13 +2,16 @@ import { ResultData } from "../types";
 
 const callGemini = async (prompt: string, options: { isJson?: boolean, model?: string } = {}) => {
   try {
+    const userApiKey = typeof window !== "undefined" ? localStorage.getItem("GEMINI_API_KEY") : null;
+    
     const response = await fetch("/api/gemini", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt,
         isJson: options.isJson,
-        model: options.model
+        model: options.model,
+        userApiKey: userApiKey || undefined
       })
     });
     

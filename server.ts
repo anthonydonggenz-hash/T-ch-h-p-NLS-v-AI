@@ -24,12 +24,14 @@ async function startServer() {
   // Gemini API Proxy
   app.post("/api/gemini", async (req, res) => {
     try {
-      const { prompt, isJson, model: modelName = "gemini-3-flash-preview" } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
+      const { prompt, isJson, model: modelName = "gemini-3-flash-preview", userApiKey } = req.body;
+      
+      // Use user provided key if available, otherwise fallback to system key
+      const apiKey = userApiKey || process.env.GEMINI_API_KEY;
 
       if (!apiKey || apiKey === "undefined" || apiKey === "null" || apiKey.trim() === "") {
         return res.status(500).json({ 
-          error: "Chưa cấu hình API Key. Vui lòng vào phần 'Settings' (biểu tượng bánh răng) -> 'API Keys' trong AI Studio để chọn một khóa API hợp lệ." 
+          error: "Hệ thống chưa có API Key. Vui lòng nhập API Key cá nhân của bạn trong phần Cài đặt API." 
         });
       }
 
