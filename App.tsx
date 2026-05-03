@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import LessonPlan5512View from './components/LessonPlan5512View';
 import DigitalCompetencyView from './components/DigitalCompetencyView';
+import { suggestFromContent, generateLessonPlan, transformActivity, elaborateSection } from './services/geminiService';
+import { exportToDocx } from './utils/export';
 import { TEMPLATES } from './constants';
 import { FormData, ResultData } from './types';
 
@@ -58,7 +60,6 @@ const App = () => {
     setCurrentMode('loading');
     
     try {
-      const { generateLessonPlan } = await import('./services/geminiService');
       const mode = formData.originalText ? 'integration' : 'creation';
       
       // Ensure we pass the original text correctly
@@ -80,7 +81,6 @@ const App = () => {
   const handleExportWord = async () => {
     if (!resultData || !resultData.lessonPlan) return;
     try {
-      const { exportToDocx } = await import('./utils/export');
       await exportToDocx(resultData);
       setNotification({ message: "Đang tải file Word (.docx)...", type: 'success' });
     } catch (error) {
@@ -166,7 +166,6 @@ const App = () => {
                   const reader = new FileReader();
                   reader.onloadend = async () => {
                       const base64Data = (reader.result as string).split(',')[1];
-                      const { suggestFromContent } = await import('./services/geminiService');
                       const suggestion = await suggestFromContent(
                           formData.topic, 
                           formData.subject, 
@@ -198,7 +197,6 @@ const App = () => {
       setIsSuggesting(true);
       
       try {
-        const { suggestFromContent } = await import('./services/geminiService');
         const aiContent = await suggestFromContent(
           formData.topic, 
           formData.subject, 
@@ -226,7 +224,6 @@ const App = () => {
     if (!resultData) return;
     setNotification({ message: `Đang chuyển đổi hoạt động sang ${methodType}...`, type: 'success' });
     try {
-      const { transformActivity } = await import('./services/geminiService');
       const currentAct = resultData.lessonPlan.activities[actIndex];
       const updatedAct = await transformActivity(currentAct, methodType, formData.subject, formData.grade);
       
@@ -244,7 +241,6 @@ const App = () => {
     if (!resultData) return;
     setNotification({ message: "Đang yêu cầu AI mở rộng nội dung...", type: 'success' });
     try {
-      const { elaborateSection } = await import('./services/geminiService');
       let currentContent = "";
       let sectionName = "";
 

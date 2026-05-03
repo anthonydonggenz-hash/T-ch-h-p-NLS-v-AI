@@ -2,11 +2,15 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ResultData } from "../types";
 
 const getApiKey = () => {
-  // In Vite, process.env is usually not available unless defined in vite.config.ts
-  // or using import.meta.env.
-  // We mapped process.env.GEMINI_API_KEY in vite.config.ts
-  return process.env.GEMINI_API_KEY || "";
+  // Try various ways to get the API key
+  return (
+    process.env.GEMINI_API_KEY || 
+    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+    ""
+  );
 };
+
+const API_ERROR_MSG = "Lỗi AI: Chưa có mã API Key. Vui lòng cấu hình GEMINI_API_KEY trong phần 'Settings' của AI Studio hoặc tệp .env.";
 
 export const suggestFromContent = async (
   topic: string,
@@ -17,7 +21,7 @@ export const suggestFromContent = async (
 ): Promise<string> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    return "Lỗi AI: Chưa cấu hình GEMINI_API_KEY. Vui lòng kiểm tra lại 'Settings' hoặc '.env'.";
+    return API_ERROR_MSG;
   }
   
   try {
@@ -65,7 +69,7 @@ export const generateLessonPlan = async (
 ): Promise<ResultData> => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("Lỗi AI: Chưa cấu hình GEMINI_API_KEY. Vui lòng kiểm tra lại 'Settings' hoặc '.env'.");
+    throw new Error(API_ERROR_MSG);
   }
   
   try {
@@ -195,7 +199,7 @@ export const transformActivity = async (
   grade: string
 ): Promise<any> => {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API Key missing");
+  if (!apiKey) throw new Error(API_ERROR_MSG);
 
   const ai = new GoogleGenerativeAI(apiKey);
   const model = ai.getGenerativeModel({ 
@@ -225,7 +229,7 @@ export const elaborateSection = async (
   sectionName: string
 ): Promise<string> => {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API Key missing");
+  if (!apiKey) throw new Error(API_ERROR_MSG);
 
   const ai = new GoogleGenerativeAI(apiKey);
   const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
